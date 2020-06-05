@@ -1,0 +1,103 @@
+version: '3.8'
+
+volumes:
+  db_data: {}
+  webroot: {}
+
+networks:
+   backend:
+      driver: ${NETWORKS_DRIVER}
+      
+services:
+   db:
+      container_name: db
+      image: pitt-sandbox-pittit-canvas:database
+      hostname: db
+      restart: always
+      build:
+         context: .
+         dockerfile: ./db/${DATABASE}-${DATABASE_VERSION}.Dockerfile
+         args:
+            TARGET_VERSION: ${DATABASE_VERSION}
+            TZ: ${TIMEZONE}
+            PASSWORD: ${DB_PASSWORD}
+            USER: ${DB_USER}
+            NAME: ${DB_NAME}
+            DATA_DIRECTORY: ${DB_DATA_DIRECTORY}
+            PORT: ${APP_SERVER_PORT}
+      volumes:
+         - db_data:${DB_DATA_DIRECTORY}
+      networks:
+         - backend
+        
+   app:
+      container_name: app
+      hostname: app
+      image: pitt-sandbox-pittit-canvas:app
+      restart: unless-stopped
+      build:
+         context: .
+         dockerfile: ./app/php-${PHP_VERSION}-fpm.Dockerfile
+         args:
+            TARGET_VERSION: ${PHP_VERSION}
+            TZ: ${TIMEZONE}
+            TYPE: ${DATABASE}
+            HOST: "db"
+            PORT: ${APP_SERVER_PORT}
+            PASSWORD: ${DB_PASSWORD}
+            USER: ${DB_USER}
+            NAME: ${DB_NAME}
+            DIRECTORY: ${APP_CODE_PATH}
+      depends_on:
+         - db
+      volumes:
+         - webroot:${APP_CODE_PATH}
+      networks:
+         - backend
+#   cli:
+#      container_name: cli
+#      hostname: cli 
+#      image: pitt.sandbox.pittit.canvas:cli
+#      restart: unless-stopped
+#      build:
+#         context: .
+#         dockerfile: ./app/${PHP_VERSION}-fpm.Dockerfile
+#         args:
+#      depends_on:
+#         - db
+#      environment:
+#         DB_USER: ${DB_APP_USER}
+#         DB_PASSWORD: ${DB_APP_PASSWORD}
+#         DB_SCHEMA: ${DB_APP_NAME}
+#      volumes:
+#         - app:${DATABASE_DATA_DIRECTORY}
+#      networks:
+#         - backend
+#         
+#   web:
+#      container_name: web
+#      hostname: web
+#      image: pitt.sandbox.pittit.canvas:web
+#      restart: unless-stopped
+#      build:
+#         context: .
+#         dockerfile: ./web/${PROXY}-${PROXY_VERSION}.Dockerfile
+#         args:
+#           APP_CODE_PATH: ${APP_CODE_PATH_CONTAINER}
+#           APP_GROUP: ${APP_GROUP}
+#           APP_GROUP_ID: ${APP_GROUP_ID}
+#           APP_USER: ${APP_USER}
+#           APP_USER_ID: ${APP_USER_ID}
+#           TZ: ${TsIMEZONE}
+#       volumes:
+#         - ${APP_CODE_PATH_HOST}:${APP_CODE_PATH_CONTAINER}
+#       ports:
+#         - "${PROXY_HOST_HTTP_PORT}:80"
+#         - "${PROXY_HOST_HTTPS_PORT}:443"
+#      depends_on:
+#         - db
+#         - app
+#      volumes:
+#         - web:${WEBROOT}
+#      networks:
+#         - backend
